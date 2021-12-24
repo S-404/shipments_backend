@@ -2,13 +2,15 @@ const sql = require('mssql');
 const config = require('../config');
 
 class StoreController {
-  async addOrder(req, res) {
+  async addOrders(req, res) {
     const { ORDER_NUM, GATE_ID } = req.query;
     const pool = await sql.connect(config);
     const addOrder = await pool.request().query(
-      `INSERT INTO [ORDERS] ([ORDER_NUM],[GATE_ID], [DATE_ADDED]) 
-        OUTPUT inserted.*
-        VALUES ('${ORDER_NUM}',${GATE_ID}, GETDATE());`
+      `INSERT INTO [ORDERS] ([ORDER_NUM],[GATE_ID],[DATE_ADDED]) 
+      OUTPUT inserted.* VALUES
+      ${ORDER_NUM.split(' ').map(
+        (order) => `('${order}',${GATE_ID}, GETDATE())`
+      )};`
     );
     res.json(addOrder.recordset);
   }
