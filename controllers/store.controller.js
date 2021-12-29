@@ -21,6 +21,19 @@ class StoreController {
     res.json(getOrders.recordset);
   }
 
+  async getOneOrder(req, res) {
+    const { ORDER_NUM } = req.query;
+    const pool = await sql.connect(config);
+    const getOneOrder = await pool.request().query(
+      `SELECT ORDER_NUM,GATE,PLACE
+      FROM [ORDERS] LEFT OUTER JOIN 
+      (SELECT GATE,PLACE,ID FROM GATES) as GATES
+      ON ORDERS.GATE_ID = GATES.ID
+      WHERE ORDER_NUM = '${ORDER_NUM}'`
+    );
+    res.json(getOneOrder.recordset);
+  }
+
   async getGates(req, res) {
     const pool = await sql.connect(config);
     const getGates = await pool.request().query(`
@@ -28,6 +41,7 @@ class StoreController {
     ,[GATES].[PLACE]
     ,[GATES].[ID]
     ,[GATES].[IS_LOADING]
+    ,[GATES].[TRUCK]
     ,otable.MAX_DATE
     FROM [GATES]
     LEFT OUTER JOIN (
@@ -60,15 +74,27 @@ class StoreController {
   }
 
   async updateGateStatus(req, res) {
-    const { ID } = req.query;
+    const { ID, IS_LOADING } = req.query;
     const pool = await sql.connect(config);
     const updateGate = await pool.request().query(
       `UPDATE [GATES] 
-      SET [IS_LOADING] = 1 ^ [IS_LOADING]
+      SET [IS_LOADING] = ${IS_LOADING === 'true' ? 1 : 0}
       OUTPUT inserted.*
       WHERE ID = ${ID};`
     );
     res.json(updateGate.recordset);
+  }
+
+  async updateGateTruck(req, res) {
+    const { ID, TRUCK } = req.query;
+    const pool = await sql.connect(config);
+    const updateTruck = await pool.request().query(
+      `UPDATE [GATES] 
+      SET [TRUCK] = '${TRUCK}'
+      OUTPUT inserted.*
+      WHERE ID = ${ID};`
+    );
+    res.json(updateTruck.recordset);
   }
 
   async deleteGateOrders(req, res) {
