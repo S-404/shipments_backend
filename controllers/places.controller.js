@@ -20,7 +20,7 @@ class PlacesController {
 	  PLACES.*
     ,otable.MAX_DATE
     FROM (
-      SELECT PLACES.PLACE, PLACES.ID, PLACES.IS_LOADING, PLACES.TRUCK ,GATES.[GATE] , GATES.GATE_ID
+      SELECT PLACES.PLACE, PLACES.ID, PLACES.IS_LOADING, PLACES.LOADING_TIME_HH, PLACES.LOADING_TIME_MM, PLACES.TRUCK ,GATES.[GATE] , GATES.GATE_ID
       FROM [PLACES] RIGHT OUTER JOIN 
       (SELECT [ID] AS GATE_ID, [GATE] FROM GATES) AS GATES
       ON PLACES.GATE_ID = GATES.GATE_ID
@@ -51,6 +51,19 @@ class PlacesController {
     const response = await pool.request().query(
       `UPDATE [PLACES] 
       SET [IS_LOADING] = ${IS_LOADING === 'true' ? 1 : 0}
+      OUTPUT inserted.*
+      WHERE ID = ${ID};`
+    );
+    res.json(response.recordset);
+  }
+
+  async updatePlaceLoadingTime(req, res) {
+    const { HH, MM, ID } = req.query;
+    const pool = await sql.connect(config);
+    const response = await pool.request().query(
+      `UPDATE [PLACES] 
+      SET [LOADING_TIME_HH] = '${HH}',
+      [LOADING_TIME_MM] = '${MM}'
       OUTPUT inserted.*
       WHERE ID = ${ID};`
     );
