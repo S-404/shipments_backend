@@ -59,22 +59,14 @@ class OrdersController {
     res.json(response.recordset);
   }
 
-  async getOneOrder(req, res) {
-    const { ORDER_NUM } = req.query;
+  async updateOrderLoadingStatus(req, res) {
+    const { ID, IS_LOADED } = req.query;
     const pool = await sql.connect(config);
     const response = await pool.request().query(
-      `SELECT 
-      PLACES.PLACE,
-      PLACES.GATE, 
-      ORDERS.ORDER_NUM
-      FROM (SELECT PLACES.* ,[GATE] 
-        FROM [PLACES] LEFT OUTER JOIN 
-        (SELECT [ID] AS GATES_GATE_ID, [GATE] FROM GATES) AS GATES
-        ON PLACES.GATE_ID = GATES.GATES_GATE_ID) AS PLACES 
-        LEFT OUTER JOIN 
-        ORDERS 
-        ON PLACES.ID = ORDERS.PLACE_ID
-      WHERE ORDER_NUM = '${ORDER_NUM}'`
+      `UPDATE [ORDERS] 
+      SET [IS_LOADED] = ${IS_LOADED === 'true' ? 1 : 0}
+      OUTPUT inserted.*
+      WHERE ID = ${ID};`
     );
     res.json(response.recordset);
   }

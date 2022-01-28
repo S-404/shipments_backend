@@ -12,8 +12,8 @@ app.use(function (req, res, next) {
   next();
 });
 app.use(express.json());
-app.use('/api', gatesRouter);
-app.use('/api', ordersRouter);
+app.use('/api/gates', gatesRouter);
+app.use('/api/orders', ordersRouter);
 app.use('/api/places', placesRouter);
 
 app.listen(PORT, function () {
