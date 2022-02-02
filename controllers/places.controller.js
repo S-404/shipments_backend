@@ -50,7 +50,7 @@ class PlacesController {
     const pool = await sql.connect(config);
     const response = await pool.request().query(
       `UPDATE [PLACES] 
-      SET [IS_LOADING] = ${IS_LOADING === 'true' ? 1 : 0}
+      SET [IS_LOADING] = ${IS_LOADING}
       OUTPUT inserted.*
       WHERE ID = ${ID};`
     );
