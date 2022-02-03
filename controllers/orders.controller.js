@@ -37,7 +37,8 @@ class OrdersController {
       ORDERS.ORDER_NUM, 
       ORDERS.ID AS ORDER_ID,
 	    ORDERS.STATUS,
-      ORDERS.IS_LOADED
+      ORDERS.IS_LOADED,
+      ORDERS.IS_PICKED
       FROM (
           SELECT PLACES.* ,[GATE] 
           FROM [PLACES] LEFT OUTER JOIN 
@@ -81,6 +82,18 @@ class OrdersController {
         ORDERS 
         ON PLACES.ID = ORDERS.PLACE_ID
       WHERE ORDER_NUM = '${ORDER_NUM}'`
+    );
+    res.json(response.recordset);
+  }
+
+  async updateOrderPickedStatus(req, res) {
+    const { ORDER_NUM } = req.query;
+    const pool = await sql.connect(config);
+    const response = await pool.request().query(
+        `UPDATE [ORDERS] 
+      SET [IS_PICKED] = 1
+      OUTPUT inserted.*
+      WHERE ORDER_NUM = ${ORDER_NUM};`
     );
     res.json(response.recordset);
   }

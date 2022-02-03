@@ -7,6 +7,7 @@ router.get('/log', OrdersController.getOrdersLog);
 router.get('/order', OrdersController.getOneOrder);
 router.get('/list', OrdersController.getOrders);
 router.put('/order/loading-status', OrdersController.updateOrderLoadingStatus);
+router.put('/order/picked-status', OrdersController.updateOrderPickedStatus);
 router.delete('/order', OrdersController.deleteOrderByOrderID);
 router.delete('/place', OrdersController.deleteOrderByPlaceID);
 
