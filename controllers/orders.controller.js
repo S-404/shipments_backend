@@ -38,19 +38,21 @@ class OrdersController {
       ORDERS.ID AS ORDER_ID,
 	    ORDERS.STATUS,
       ORDERS.IS_LOADED,
-      ORDERS.IS_PICKED
+      ORDERS.IS_INPLACE,
+      ORDERS.ORDER_WEIGHT
       FROM (
           SELECT PLACES.* ,[GATE] 
           FROM [PLACES] LEFT OUTER JOIN 
           (SELECT [ID] AS GATES_GATE_ID, [GATE] FROM GATES) AS GATES
           ON PLACES.GATE_ID = GATES.GATES_GATE_ID) AS PLACES 
       LEFT OUTER JOIN 
-        (SELECT ORDERS.* , ORDERS_STATUSES.STATUS
+        (SELECT ORDERS.* , ORDERS_STATUSES.STATUS, ORDERS_STATUSES.ORDER_WEIGHT
          FROM ORDERS LEFT OUTER JOIN 
-            (SELECT [ORDER_NUM], MIN([STATUS]) as STATUS
+            (SELECT [ORDER_NUM], MIN([STATUS]) as STATUS, SUM(WEIGHT) AS ORDER_WEIGHT
 				FROM(
 				SELECT DISTINCT 
                 CAST([ORDER_NUM] AS INT) AS [ORDER_NUM],
+                CAST([WEIGHT] AS FLOAT) AS [WEIGHT],
 			    CASE [STATUS]
 					WHEN 'Not Started' THEN 0
 					WHEN 'Picked' THEN 1
@@ -91,7 +93,7 @@ class OrdersController {
     const pool = await sql.connect(config);
     const response = await pool.request().query(
         `UPDATE [ORDERS] 
-      SET [IS_PICKED] = 1
+      SET [IS_INPLACE] = 1
       OUTPUT inserted.*
       WHERE ORDER_NUM = ${ORDER_NUM};`
     );
