@@ -75,7 +75,7 @@ class PlacesController {
     const pool = await sql.connect(config);
     const response = await pool.request().query(
       `UPDATE [PLACES] 
-      SET [TRUCK] = '${TRUCK}'
+      SET [TRUCK] = N'${TRUCK}'
       OUTPUT inserted.*
       WHERE ID = ${ID};`
     );
