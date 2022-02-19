@@ -15,14 +15,22 @@ class OrdersController {
        insertedVal.DATE_ADDED,
        '${USER_ID}' as [USER_ID],
        'add' as CODE,
-       insertedVal.ID as ORDER_ID
+       insertedVal.ID as ORDER_ID,
+       insertedVal.POSITION
        FROM
-       (INSERT INTO [ORDERS] ([ORDER_NUM],[PLACE_ID],[DATE_ADDED]) 
+       (INSERT INTO [ORDERS] ([ORDER_NUM],[PLACE_ID],[DATE_ADDED],POSITION) 
        OUTPUT inserted.* VALUES
        ${ORDER_NUM.split(' ').map(
-         (order) => `('${order}',${PLACE_ID}, GETDATE())`
+         (order) => `('${order}',${PLACE_ID}, GETDATE(),
+         ISNULL ((SELECT MAX(POSITION) FROM ORDERS WHERE PLACE_ID = ${PLACE_ID}), 0)+1
+         )`
        )}) insertedVal`
     );
+    if(response?.recordset[0]?.ORDER_NUM){
+       await pool.request().query(
+      `DELETE FROM [DEFERRED_ORDERS]
+      WHERE ORDER_NUM = ${ORDER_NUM}`)
+    }
     res.json(response.recordset);
   }
 
@@ -39,7 +47,8 @@ class OrdersController {
 	    ORDERS.STATUS,
       ORDERS.IS_LOADED,
       ORDERS.IS_INPLACE,
-      ORDERS.ORDER_WEIGHT
+      ORDERS.ORDER_WEIGHT,
+      ORDERS.POSITION
       FROM (
           SELECT PLACES.* ,[GATE] 
           FROM [PLACES] LEFT OUTER JOIN 
@@ -68,14 +77,24 @@ class OrdersController {
     res.json(response.recordset);
   }
 
-  async getOneOrder(req, res) {
-    const { ORDER_NUM } = req.query;
+  async getDeferredOrders(req, res) {
     const pool = await sql.connect(config);
-    const response = await pool.request().query(
-        `SELECT 
+    const response = await pool
+      .request()
+      .query(`SELECT * FROM DEFERRED_ORDERS`);
+    res.json(response.recordset);
+  }
+
+  async getOrderLocation(req, res) {
+    const { inputNum } = req.query;
+    const { criteria } = req.params;
+
+    const locations = `
+    SELECT 
       PLACES.PLACE,
       PLACES.GATE, 
-      ORDERS.ORDER_NUM
+      ORDERS.POSITION,
+      CAST (ORDERS.ORDER_NUM as float) as ORDER_NUM
       FROM (SELECT PLACES.* ,[GATE] 
         FROM [PLACES] LEFT OUTER JOIN 
         (SELECT [ID] AS GATES_GATE_ID, [GATE] FROM GATES) AS GATES
@@ -83,17 +102,32 @@ class OrdersController {
         LEFT OUTER JOIN 
         ORDERS 
         ON PLACES.ID = ORDERS.PLACE_ID
-      WHERE ORDER_NUM = '${ORDER_NUM}'`
-    );
+	  WHERE ORDERS.ORDER_NUM is not null`;
+
+    const query =
+      criteria === 'order'
+        ? `${locations} AND ORDER_NUM = '${inputNum}'`
+        : `SELECT 
+      PICK_IDs.PICK_ID AS ORDER_NUM,
+      ORDERS_LOCATIONS.GATE,
+      ORDERS_LOCATIONS.PLACE
+      FROM PICK_IDs LEFT OUTER JOIN
+      (${locations}) AS ORDERS_LOCATIONS
+        ON PICK_IDs.ORDER_NUM = ORDERS_LOCATIONS.ORDER_NUM
+        WHERE ORDERS_LOCATIONS.ORDER_NUM is not null
+        AND PICK_IDs.PICK_ID = '${inputNum}'`;
+
+    const pool = await sql.connect(config);
+    const response = await pool.request().query(query);
     res.json(response.recordset);
   }
 
   async updateOrderPickedStatus(req, res) {
-    const { ORDER_NUM } = req.query;
+    const { ORDER_NUM, IS_INPLACE } = req.query;
     const pool = await sql.connect(config);
     const response = await pool.request().query(
-        `UPDATE [ORDERS] 
-      SET [IS_INPLACE] = 1
+      `UPDATE [ORDERS] 
+      SET [IS_INPLACE] = ${IS_INPLACE}
       OUTPUT inserted.*
       WHERE ORDER_NUM = ${ORDER_NUM};`
     );
@@ -106,6 +140,18 @@ class OrdersController {
     const response = await pool.request().query(
       `UPDATE [ORDERS] 
       SET [IS_LOADED] = ${IS_LOADED === 'true' ? 1 : 0}
+      OUTPUT inserted.*
+      WHERE ID = ${ID};`
+    );
+    res.json(response.recordset);
+  }
+
+  async updateOrderPosition(req, res) {
+    const { ID, POSITION } = req.query;
+    const pool = await sql.connect(config);
+    const response = await pool.request().query(
+      `UPDATE [ORDERS] 
+      SET [POSITION] = ${POSITION ? POSITION : 0}
       OUTPUT inserted.*
       WHERE ID = ${ID};`
     );
@@ -142,6 +188,41 @@ class OrdersController {
     res.json(response.recordset);
   }
 
+  async deferOrder(req, res) {
+    const { ID, USER_ID } = req.query;
+    const pool = await sql.connect(config);
+    const deleteResponse = await pool.request().query(
+      `INSERT INTO ORDERS_LOG 
+       OUTPUT inserted.*
+       SELECT 
+       GETDATE() AS DATE_,
+       deleted.ORDER_NUM,
+       deleted.PLACE_ID,
+       deleted.DATE_ADDED,
+       '${USER_ID}' as [USER_ID],
+       'defer' as CODE,
+       deleted.ID as ORDER_ID,
+       deleted.POSITION
+       FROM
+          (DELETE FROM [ORDERS]
+          OUTPUT deleted.*
+          WHERE ID = ${ID}) deleted`
+    );
+
+    let order = deleteResponse?.recordset[0]?.ORDER_NUM;
+    if (order) {
+      const response = await pool.request().query(
+        `INSERT INTO DEFERRED_ORDERS (ORDER_NUM)
+         OUTPUT inserted.*
+         VALUES ('${order}')
+         `
+      );
+      res.json(response.recordset);
+    } else {
+      res.json([]);
+    }
+  }
+
   async deleteOrderByOrderID(req, res) {
     const { ID, USER_ID } = req.query;
     const pool = await sql.connect(config);
@@ -155,7 +236,8 @@ class OrdersController {
        deleted.DATE_ADDED,
        '${USER_ID}' as [USER_ID],
        'delete' as CODE,
-       deleted.ID as ORDER_ID
+       deleted.ID as ORDER_ID,
+       deleted.POSITION
        FROM
           (DELETE FROM [ORDERS]
           OUTPUT deleted.*
@@ -185,6 +267,8 @@ class OrdersController {
     );
     res.json(response.recordset);
   }
+
+
 }
 
 module.exports = new OrdersController();
