@@ -21,15 +21,17 @@ class OrdersController {
        (INSERT INTO [ORDERS] ([ORDER_NUM],[PLACE_ID],[DATE_ADDED],POSITION) 
        OUTPUT inserted.* VALUES
        ${ORDER_NUM.split(' ').map(
-         (order) => `('${order}',${PLACE_ID}, GETDATE(),
-         ISNULL ((SELECT MAX(POSITION) FROM ORDERS WHERE PLACE_ID = ${PLACE_ID}), 0)+1
+         (order, index) => `('${order}',${PLACE_ID}, GETDATE(),
+         ISNULL ((SELECT MAX(POSITION) FROM ORDERS WHERE PLACE_ID = ${PLACE_ID}), 0)+1+${index}
          )`
        )}) insertedVal`
     );
     if(response?.recordset[0]?.ORDER_NUM){
        await pool.request().query(
       `DELETE FROM [DEFERRED_ORDERS]
-      WHERE ORDER_NUM = ${ORDER_NUM}`)
+      WHERE ORDER_NUM IN (
+        ${ORDER_NUM.split(' ').join(', ')}
+        )`)
     }
     res.json(response.recordset);
   }
