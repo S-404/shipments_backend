@@ -10,6 +10,7 @@
   "author": "Andrey S-404",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^16.0.0",
     "express": "^4.17.1",
     "mssql": "^7.3.0"
   }
